@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CANTO DJ MASTER</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080808;--surface:#111;--border:#222;
+  --a:#00ffcc;   /* DECK A: cyan */
+  --b:#ff6ef7;   /* DECK B: magenta */
+  --accent:#e8ff47;
+  --muted:#555;--text:#eee;--dim:#333;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Space Mono',monospace;font-size:11px;
+  height:100vh;display:flex;flex-direction:column;overflow:hidden;
+  user-select:none;
+}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 16px;border-bottom:1px solid var(--border);
+  background:var(--surface);flex-shrink:0;
+}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:4px;color:var(--accent);}
+.logo span{color:var(--muted);font-size:12px;letter-spacing:2px;margin-left:4px;}
+.bus-status{
+  margin-left:auto;font-size:8px;letter-spacing:1px;
+  padding:2px 8px;border:1px solid var(--border);color:var(--muted);
+}
+.bus-status.live{border-color:var(--a);color:var(--a);}
+
+/* ── MAIN LAYOUT: 2 DECKS ── */
+.decks{display:flex;flex:1;gap:0;overflow:hidden;}
+
+/* ── SINGLE DECK PANEL ── */
+.deck{
+  flex:1;display:flex;flex-direction:column;
+  border-right:1px solid var(--border);padding:12px 14px;gap:10px;
+}
+.deck:last-child{border-right:none;}
+.deck-a{border-top:3px solid var(--a);}
+.deck-b{border-top:3px solid var(--b);}
+
+.deck-header{display:flex;align-items:center;gap:8px;}
+.deck-id{
+  font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;
+}
+.deck-a .deck-id{color:var(--a);}
+.deck-b .deck-id{color:var(--b);}
+.deck-conn{font-size:7px;letter-spacing:1px;color:var(--muted);padding:1px 5px;border:1px solid var(--border);}
+.deck-conn.online{color:var(--a);border-color:var(--a);}
+.deck-b .deck-conn.online{color:var(--b);border-color:var(--b);}
+
+/* Now playing info */
+.now-playing{
+  background:var(--dim);border:1px solid var(--border);
+  padding:8px 10px;min-height:52px;
+}
+.np-title{font-size:11px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.np-sub{font-size:8px;color:var(--muted);margin-top:3px;}
+.np-time{
+  font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--accent);margin-top:5px;letter-spacing:1px;
+}
+
+/* Progress bar */
+.prog{height:4px;background:var(--border);margin:0;cursor:pointer;position:relative;}
+.prog-fill{height:100%;background:var(--accent);transition:width .1s linear;pointer-events:none;}
+.deck-a .prog-fill{background:var(--a);}
+.deck-b .prog-fill{background:var(--b);}
+
+/* Transport buttons */
+.transport{display:flex;gap:5px;align-items:center;}
+.tb{
+  background:var(--surface);border:1px solid var(--border);color:var(--text);
+  padding:6px 10px;cursor:pointer;font-family:'Space Mono',monospace;
+  font-size:10px;transition:all .12s;flex:1;text-align:center;
+}
+.tb:hover{background:var(--dim);}
+.tb.play{font-size:14px;flex:1.5;}
+.deck-a .tb:hover,.deck-a .tb.active{background:rgba(0,255,204,.15);border-color:var(--a);color:var(--a);}
+.deck-b .tb:hover,.deck-b .tb.active{background:rgba(255,110,247,.15);border-color:var(--b);color:var(--b);}
+.tb.cue-btn{font-size:8px;background:#1a1a00;border-color:#4a4a00;color:#aaaa44;}
+.deck-a .tb.cue-btn:hover{background:rgba(0,255,204,.1);border-color:var(--a);color:var(--a);}
+.deck-b .tb.cue-btn:hover{background:rgba(255,110,247,.1);border-color:var(--b);color:var(--b);}
+
+/* Volume */
+.vol-row{display:flex;align-items:center;gap:8px;}
+.vol-lbl{font-size:7px;color:var(--muted);letter-spacing:1px;width:24px;flex-shrink:0;}
+.vol-val{font-size:9px;font-weight:700;width:30px;text-align:right;flex-shrink:0;}
+.deck-a .vol-val{color:var(--a);}
+.deck-b .vol-val{color:var(--b);}
+input[type=range]{
+  -webkit-appearance:none;flex:1;height:4px;background:var(--dim);
+  outline:none;cursor:pointer;border-radius:2px;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:12px;height:12px;border-radius:50%;cursor:pointer;
+}
+.deck-a input[type=range]::-webkit-slider-thumb{background:var(--a);}
+.deck-b input[type=range]::-webkit-slider-thumb{background:var(--b);}
+
+/* ── CROSSFADER CENTER ── */
+.xfader-panel{
+  width:180px;flex-shrink:0;
+  display:flex;flex-direction:column;align-items:center;
+  border-left:1px solid var(--border);border-right:1px solid var(--border);
+  padding:12px 10px;gap:14px;background:var(--surface);
+}
+.xf-title{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;color:var(--muted);}
+.xf-wrap{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.xf-labels{display:flex;justify-content:space-between;width:100%;font-size:8px;}
+.xf-a{color:var(--a);}.xf-b{color:var(--b);}
+input#xfSlider{
+  width:100%;-webkit-appearance:none;height:6px;
+  background:linear-gradient(to right,var(--a),var(--dim),var(--b));
+  outline:none;cursor:pointer;border-radius:3px;
+}
+input#xfSlider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;
+  background:var(--text);border-radius:50%;cursor:pointer;
+  border:2px solid var(--bg);
+}
+
+/* SYNC / ALL STOP buttons */
+.master-btns{display:flex;flex-direction:column;gap:6px;width:100%;}
+.mb{
+  padding:7px 0;border:1px solid var(--border);background:var(--dim);
+  color:var(--text);cursor:pointer;font-family:'Space Mono',monospace;
+  font-size:8px;letter-spacing:1px;text-align:center;width:100%;
+  transition:all .12s;
+}
+.mb:hover{background:#333;}
+.mb.sync{border-color:var(--accent);color:var(--accent);}
+.mb.sync:hover{background:rgba(232,255,71,.1);}
+.mb.allstop{border-color:#ff4444;color:#ff4444;}
+.mb.allstop:hover{background:rgba(255,68,68,.12);}
+
+/* Console log */
+.console{
+  height:70px;overflow-y:auto;background:#050505;border-top:1px solid var(--border);
+  padding:4px 12px;font-size:8px;color:var(--muted);flex-shrink:0;
+  font-family:'Space Mono',monospace;
+}
+.console .entry{line-height:1.7;}
+.console .entry.rx{color:#44dd88;}
+.console .entry.tx{color:#44aaff;}
+.console .entry.warn{color:#ffaa44;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CANTO <span>DJ MASTER</span></div>
+  <div class="bus-status" id="busStatus">● BUS STANDBY</div>
+</header>
+
+<div class="decks">
+
+  <!-- ── DECK A ── -->
+  <div class="deck deck-a" id="deckA">
+    <div class="deck-header">
+      <div class="deck-id">DECK A</div>
+      <div class="deck-conn" id="connA">OFFLINE</div>
+    </div>
+    <div class="now-playing" id="npA">
+      <div class="np-title" id="npTitleA">— No Track —</div>
+      <div class="np-sub" id="npSubA">Open mp3player_32_12.html?deck=A</div>
+      <div class="np-time" id="npTimeA">0:00</div>
+    </div>
+    <div class="prog" id="progA" onclick="seekDeck('A',event,this)">
+      <div class="prog-fill" id="progFillA" style="width:0%"></div>
+    </div>
+    <div class="transport">
+      <button class="tb" onclick="send('A','PREV')">⏮</button>
+      <button class="tb play" id="playBtnA" onclick="togglePlay('A')">▶</button>
+      <button class="tb" onclick="send('A','NEXT')">⏭</button>
+      <button class="tb cue-btn" onclick="send('A','CUE',{time: deckState.A.currentTime||0})">CUE</button>
+    </div>
+    <div class="vol-row">
+      <span class="vol-lbl">VOL</span>
+      <input type="range" id="volA" min="0" max="100" value="80"
+        oninput="sendVol('A',this.value)">
+      <span class="vol-val" id="volValA">80%</span>
+    </div>
+  </div>
+
+  <!-- ── CROSSFADER CENTER ── -->
+  <div class="xfader-panel">
+    <div class="xf-title">X-FADER</div>
+    <div class="xf-wrap">
+      <div class="xf-labels"><span class="xf-a">A</span><span class="xf-b">B</span></div>
+      <input type="range" id="xfSlider" min="0" max="100" value="50"
+        oninput="onCrossfade(this.value)">
+    </div>
+    <div class="master-btns">
+      <button class="mb sync" onclick="syncPlay()">▶▶ SYNC PLAY</button>
+      <button class="mb" onclick="sendAll('PAUSE')">⏸ PAUSE ALL</button>
+      <button class="mb allstop" onclick="allStop()">■ ALL STOP</button>
+    </div>
+    <div style="font-size:7px;color:var(--muted);text-align:center;line-height:1.8;margin-top:auto">
+      CONSOLE
+    </div>
+  </div>
+
+  <!-- ── DECK B ── -->
+  <div class="deck deck-b" id="deckB">
+    <div class="deck-header">
+      <div class="deck-id">DECK B</div>
+      <div class="deck-conn" id="connB">OFFLINE</div>
+    </div>
+    <div class="now-playing" id="npB">
+      <div class="np-title" id="npTitleB">— No Track —</div>
+      <div class="np-sub" id="npSubB">Open mp3player_32_12.html?deck=B</div>
+      <div class="np-time" id="npTimeB">0:00</div>
+    </div>
+    <div class="prog" id="progB" onclick="seekDeck('B',event,this)">
+      <div class="prog-fill" id="progFillB" style="width:0%"></div>
+    </div>
+    <div class="transport">
+      <button class="tb" onclick="send('B','PREV')">⏮</button>
+      <button class="tb play" id="playBtnB" onclick="togglePlay('B')">▶</button>
+      <button class="tb" onclick="send('B','NEXT')">⏭</button>
+      <button class="tb cue-btn" onclick="send('B','CUE',{time: deckState.B.currentTime||0})">CUE</button>
+    </div>
+    <div class="vol-row">
+      <span class="vol-lbl">VOL</span>
+      <input type="range" id="volB" min="0" max="100" value="80"
+        oninput="sendVol('B',this.value)">
+      <span class="vol-val" id="volValB">80%</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── CONSOLE LOG ── -->
+<div class="console" id="console"></div>
+
+<script>
+'use strict';
+
+// ── BroadcastChannel ──
+const djBus = new BroadcastChannel('canto_dj_bus');
+
+// ── Deck 状態管理 ──
+const deckState = {
+  A: { playing:false, currentTime:0, duration:0, volume:0.8, title:'', online:false },
+  B: { playing:false, currentTime:0, duration:0, volume:0.8, title:'', online:false },
+};
+
+// ── コマンド送信 ──
+function send(deck, cmd, payload={}){
+  const msg = { cmd, deck, payload, ts:Date.now() };
+  djBus.postMessage(msg);
+  log(`TX → DECK ${deck}: ${cmd}${payload.value!==undefined?' '+Math.round(payload.value*100||payload.value):''}`, 'tx');
+}
+function sendAll(cmd, payload={}){
+  djBus.postMessage({ cmd, deck:'all', payload, ts:Date.now() });
+  log(`TX → ALL: ${cmd}`, 'tx');
+}
+
+// ── PLAY/PAUSE トグル ──
+function togglePlay(deck){
+  const st = deckState[deck];
+  if(st.playing){
+    send(deck,'PAUSE');
+  } else {
+    send(deck,'PLAY');
+  }
+}
+
+// ── 音量送信 ──
+function sendVol(deck, val){
+  const pct = parseInt(val);
+  document.getElementById('volVal'+deck).textContent = pct+'%';
+  send(deck, 'VOL', { value: pct/100 });
+}
+
+// ── プログレスバークリックでシーク ──
+function seekDeck(deck, e, bar){
+  const st = deckState[deck];
+  if(!st.duration) return;
+  const r = Math.max(0, Math.min(1, e.offsetX / bar.offsetWidth));
+  const time = r * st.duration;
+  send(deck, 'SEEK', { time });
+}
+
+// ── クロスフェーダー ──
+function onCrossfade(val){
+  // val: 0=全A, 50=中間, 100=全B
+  const v = parseInt(val) / 100;           // 0〜1
+  const volA = Math.min(1, 2*(1-v));       // 0=1.0, 50=1.0, 100=0.0
+  const volB = Math.min(1, 2*v);           // 0=0.0, 50=1.0, 100=1.0
+
+  // スライダーUIも連動
+  const slA = document.getElementById('volA');
+  const slB = document.getElementById('volB');
+  if(slA){ slA.value = Math.round(volA*100); document.getElementById('volValA').textContent=Math.round(volA*100)+'%'; }
+  if(slB){ slB.value = Math.round(volB*100); document.getElementById('volValB').textContent=Math.round(volB*100)+'%'; }
+
+  djBus.postMessage({ cmd:'CROSSFADE', deck:'A', payload:{ value:1-volA }, ts:Date.now() });
+  djBus.postMessage({ cmd:'CROSSFADE', deck:'B', payload:{ value:1-volB }, ts:Date.now() });
+}
+
+// ── SYNC PLAY（両デッキ同時再生） ──
+function syncPlay(){
+  const msg1 = { cmd:'PLAY', deck:'A', payload:{}, ts:Date.now() };
+  const msg2 = { cmd:'PLAY', deck:'B', payload:{}, ts:Date.now() };
+  djBus.postMessage(msg1);
+  djBus.postMessage(msg2);
+  log('TX → SYNC PLAY (A+B)', 'tx');
+}
+
+// ── ALL STOP ──
+function allStop(){
+  sendAll('STOP');
+}
+
+// ── 状態受信 ──
+djBus.onmessage = (e) => {
+  const { cmd, deck, payload } = e.data;
+  if(!deck || deck==='all') return;
+  const st = deckState[deck];
+  if(!st) return;
+
+  if(cmd==='STATUS' || cmd==='PONG'){
+    st.playing     = payload.playing || false;
+    st.currentTime = payload.currentTime || 0;
+    st.duration    = payload.duration || 0;
+    st.volume      = payload.volume ?? st.volume;
+    st.title       = payload.title || st.title;
+    st.online      = true;
+    updateDeckUI(deck);
+    if(cmd==='PONG') log(`RX ← DECK ${deck}: ${cmd} (${payload.state||'ok'})`, 'rx');
+  }
+  if(cmd==='HANDSHAKE'){
+    st.online = true;
+    updateDeckUI(deck);
+    log(`RX ← DECK ${deck}: HANDSHAKE (online)`, 'rx');
+    document.getElementById('busStatus').textContent='● BUS LIVE';
+    document.getElementById('busStatus').classList.add('live');
+  }
+};
+
+// ── UI 更新 ──
+function fmtD(s){ if(!s||isNaN(s))return'0:00'; return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0'); }
+
+function updateDeckUI(deck){
+  const st = deckState[deck];
+
+  // 接続状態
+  const conn = document.getElementById('conn'+deck);
+  if(conn){ conn.textContent = st.online ? 'ONLINE' : 'OFFLINE'; conn.classList.toggle('online', st.online); }
+
+  // 曲情報
+  const title = document.getElementById('npTitle'+deck);
+  const sub   = document.getElementById('npSub'+deck);
+  if(title) title.textContent = st.title || (st.online ? '— No Track —' : '— Offline —');
+  if(sub)   sub.textContent   = st.online ? (st.playing?'▶ PLAYING':'⏸ PAUSED') : `Open mp3player_32_12.html?deck=${deck}`;
+
+  // 時刻
+  const timeEl = document.getElementById('npTime'+deck);
+  if(timeEl) timeEl.textContent = fmtD(st.currentTime) + (st.duration?' / '+fmtD(st.duration):'');
+
+  // プログレスバー
+  const fill = document.getElementById('progFill'+deck);
+  if(fill && st.duration) fill.style.width = (st.currentTime / st.duration * 100).toFixed(1)+'%';
+
+  // 再生ボタン
+  const pb = document.getElementById('playBtn'+deck);
+  if(pb){ pb.textContent = st.playing ? '⏸' : '▶'; pb.classList.toggle('active', st.playing); }
+}
+
+// ── コンソールログ ──
+function log(msg, type=''){
+  const c = document.getElementById('console');
+  const d = new Date();
+  const ts = d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0')+':'+d.getSeconds().toString().padStart(2,'0');
+  const div = document.createElement('div');
+  div.className = 'entry '+(type||'');
+  div.textContent = `[${ts}] ${msg}`;
+  c.appendChild(div);
+  // 最新20行だけ保持
+  while(c.children.length > 20) c.removeChild(c.firstChild);
+  c.scrollTop = c.scrollHeight;
+}
+
+// ── 定期PING（2秒ごとに生存確認） ──
+setInterval(()=>{
+  ['A','B'].forEach(deck=>{
+    djBus.postMessage({ cmd:'PING', deck, payload:{}, ts:Date.now() });
+  });
+}, 2000);
+
+// ── 起動ログ ──
+log('CANTO DJ MASTER — Phase 0 ready', 'rx');
+log('Open mp3player_32_12.html?deck=A and ?deck=B to begin', '');
+</script>
+</body>
+</html>
